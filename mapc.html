@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blender & Roblox Studio Style 3D Map Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background: #121212; color: #e0e0e0; user-select: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+        .panel-bg { background: rgba(24, 24, 28, 0.92); backdrop-filter: blur(10px); }
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #60a5fa; }
+        canvas { display: block; outline: none; }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col overflow-hidden">
+
+    <header class="h-12 panel-bg border-b border-zinc-800 flex items-center justify-between px-4 z-20 text-xs shadow-md">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 font-bold text-sm tracking-wide text-blue-400">
+                <i class="fa-solid fa-cube text-base"></i>
+                <span>STUDIO-X 3D EDITOR</span>
+            </div>
+            <div class="h-4 w-[1px] bg-zinc-700"></div>
+            <div class="flex items-center space-x-1">
+                <button onclick="newProject()" class="px-2.5 py-1.5 hover:bg-zinc-700 rounded transition text-zinc-300"><i class="fa-solid fa-file-circle-plus mr-1"></i> New</button>
+                <button onclick="triggerImport()" class="px-2.5 py-1.5 hover:bg-zinc-700 rounded transition text-zinc-300"><i class="fa-solid fa-folder-open mr-1"></i> Import JSON</button>
+                <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
+                <button onclick="exportJSON()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition font-medium"><i class="fa-solid fa-download mr-1"></i> Export Schema</button>
+            </div>
+        </div>
+        
+        <!-- Viewport Gizmo Mode Bar -->
+        <div class="flex items-center bg-zinc-900 rounded border border-zinc-700 p-0.5 space-x-1">
+            <button id="modeTranslate" onclick="setTransformMode('translate')" class="px-3 py-1 rounded bg-blue-600 text-white transition flex items-center space-x-1"><i class="fa-solid fa-arrows-up-down-left-right text-[10px]"></i><span>Move</span></button>
+            <button id="modeRotate" onclick="setTransformMode('rotate')" class="px-3 py-1 rounded hover:bg-zinc-700 text-zinc-300 transition flex items-center space-x-1"><i class="fa-solid fa-rotate text-[10px]"></i><span>Rotate</span></button>
+            <button id="modeScale" onclick="setTransformMode('scale')" class="px-3 py-1 rounded hover:bg-zinc-700 text-zinc-300 transition flex items-center space-x-1"><i class="fa-solid fa-expand text-[10px]"></i><span>Scale</span></button>
+        </div>
+
+        <div class="flex items-center space-x-3 text-zinc-400">
+            <span id="polyCount" class="text-[10px] bg-zinc-800 px-2 py-1 rounded border border-zinc-700">Objects: 0</span>
+            <button onclick="toggleModal('helpModal')" class="hover:text-white"><i class="fa-solid fa-circle-question text-sm"></i></button>
+        </div>
+    </header>
+
+    <div class="flex-1 relative flex overflow-hidden">
+        
+        <!-- Left Sidebar: Object Library & Hierarchy -->
+        <aside class="w-72 panel-bg border-r border-zinc-800 flex flex-col z-10 text-xs">
+            <div class="flex border-b border-zinc-800 text-center font-medium">
+                <button onclick="switchTab('library')" id="tabBtnLibrary" class="flex-1 py-2.5 tab-btn active hover:bg-zinc-800/50 transition">Object Library</button>
+                <button onclick="switchTab('outliner')" id="tabBtnOutliner" class="flex-1 py-2.5 tab-btn hover:bg-zinc-800/50 transition">Outliner</button>
+            </div>
+
+            <!-- Library Tab Content -->
+            <div id="tabContentLibrary" class="flex-1 p-3 overflow-y-auto space-y-4">
+                <div>
+                    <label class="text-[10px] text-zinc-400 uppercase tracking-wider block mb-2 font-bold">Standard Primitives</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="spawnObject('box')" class="p-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded flex flex-col items-center justify-center space-y-1 transition text-zinc-200">
+                            <i class="fa-solid fa-cube text-blue-400 text-base"></i><span>Block / Box</span>
+                        </button>
+                        <button onclick="spawnObject('cylinder')" class="p-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded flex flex-col items-center justify-center space-y-1 transition text-zinc-200">
+                            <i class="fa-solid fa-database text-emerald-400 text-base"></i><span>Cylinder</span>
+                        </button>
+                        <button onclick="spawnObject('sphere')" class="p-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded flex flex-col items-center justify-center space-y-1 transition text-zinc-200">
+                            <i class="fa-solid fa-globe text-amber-400 text-base"></i><span>Sphere</span>
+                        </button>
+                        <button onclick="spawnObject('ramp')" class="p-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded flex flex-col items-center justify-center space-y-1 transition text-zinc-200">
+                            <i class="fa-solid fa-mountain text-purple-400 text-base"></i><span>Ramp / Wedge</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-zinc-400 uppercase tracking-wider block mb-2 font-bold">Architecture & Props</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="spawnObject('pillar')" class="p-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center space-x-2">
+                            <i class="fa-solid fa-columns text-cyan-400"></i><span>Pillar / Column</span>
+                        </button>
+                        <button onclick="spawnObject('barrier')" class="p-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center space-x-2">
+                            <i class="fa-solid fa-shield-halved text-rose-400"></i><span>Wall / Barrier</span>
+                        </button>
+                        <button onclick="spawnObject('roof')" class="p-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center space-x-2">
+                            <i class="fa-solid fa-home text-orange-400"></i><span>Roof Panel</span>
+                        </button>
+                        <button onclick="spawnObject('spawn')" class="p-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center space-x-2">
+                            <i class="fa-solid fa-crosshairs text-lime-400"></i><span>Spawn Point</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-zinc-400 uppercase tracking-wider block mb-2 font-bold">Map Presets</label>
+                    <div class="space-y-1.5">
+                        <button onclick="loadPreset('peak')" class="w-full py-2 px-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center justify-between">
+                            <span>🏔️ Peak (Bermuda Style)</span><i class="fa-solid fa-chevron-right text-[10px] text-zinc-500"></i>
+                        </button>
+                        <button onclick="loadPreset('rooftop')" class="w-full py-2 px-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center justify-between">
+                            <span>🏙️ Rooftop Battle</span><i class="fa-solid fa-chevron-right text-[10px] text-zinc-500"></i>
+                        </button>
+                        <button onclick="loadPreset('empty')" class="w-full py-2 px-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 rounded text-left transition flex items-center justify-between text-zinc-400">
+                            <span>🗑️ Clear Grid</span><i class="fa-solid fa-trash text-[10px] text-zinc-600"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outliner Tab Content -->
+            <div id="tabContentOutliner" class="flex-1 p-2 overflow-y-auto space-y-1 hidden">
+                <div class="text-[10px] text-zinc-400 px-2 py-1 uppercase font-bold flex justify-between items-center">
+                    <span>Scene Hierarchy</span>
+                    <span id="outlinerCount" class="text-zinc-500">0 items</span>
+                </div>
+                <div id="outlinerList" class="space-y-1">
+                    <!-- Dynamic outliner items populated via JS -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main 3D Viewport Canvas Container -->
+        <main id="viewportContainer" class="flex-1 relative overflow-hidden bg-zinc-950">
+            <!-- Viewport Overlay Info -->
+            <div class="absolute top-3 left-3 bg-zinc-900/80 border border-zinc-800 px-3 py-1.5 rounded text-[11px] pointer-events-none text-zinc-400 flex flex-col space-y-0.5">
+                <span class="font-semibold text-zinc-200" id="currentMapTitleDisplay">Peak (Bermuda Style)</span>
+                <span>Blender Navigation: Middle-Click/Shift+Right-Click Pan | Alt+Drag Orbit | Scroll Zoom</span>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Properties Inspector & Environment -->
+        <aside class="w-80 panel-bg border-l border-zinc-800 flex flex-col z-10 text-xs overflow-y-auto">
+            
+            <!-- Map Info Settings -->
+            <div class="p-3 border-b border-zinc-800 space-y-2">
+                <span class="text-[10px] text-zinc-400 uppercase tracking-wider font-bold block">Map Settings</span>
+                <div>
+                    <label class="text-zinc-400 block mb-1">Map ID</label>
+                    <input type="text" id="mapIdInput" class="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1 text-zinc-200 focus:outline-none focus:border-blue-500" value="peak_bermuda">
+                </div>
+                <div>
+                    <label class="text-zinc-400 block mb-1">Map Name</label>
+                    <input type="text" id="mapNameInput" class="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1 text-zinc-200 focus:outline-none focus:border-blue-500" value="Peak (Bermuda Style)">
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                        <label class="text-zinc-400 block mb-1">Sky Color</label>
+                        <input type="color" id="skyColorInput" value="#1a2634" class="w-full h-7 bg-zinc-900 border border-zinc-700 rounded cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-zinc-400 block mb-1">Ground Color</label>
+                        <input type="color" id="groundColorInput" value="#2d4c22" class="w-full h-7 bg-zinc-900 border border-zinc-700 rounded cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Object Inspector -->
+            <div id="inspectorPanel" class="p-3 border-b border-zinc-800 space-y-3 hidden">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] text-blue-400 uppercase tracking-wider font-bold">Object Properties</span>
+                    <button onclick="deleteSelected()" class="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded transition text-[10px]"><i class="fa-solid fa-trash mr-1"></i>Delete</button>
+                </div>
+                
+                <div>
+                    <label class="text-zinc-400 block mb-1">Object Type / Name</label>
+                    <input type="text" id="propName" class="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-zinc-300" readonly>
+                </div>
+
+                <!-- Position Group -->
+                <div>
+                    <label class="text-zinc-400 block mb-1">Position (X, Y, Z)</label>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-rose-400 font-bold mr-1">X</span><input type="number" id="propX" step="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-emerald-400 font-bold mr-1">Y</span><input type="number" id="propY" step="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-blue-400 font-bold mr-1">Z</span><input type="number" id="propZ" step="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                    </div>
+                </div>
+
+                <!-- Scale / Dimensions Group -->
+                <div id="dimensionGroup">
+                    <label class="text-zinc-400 block mb-1">Dimensions / Size (W, H, D / R)</label>
+                    <div class="grid grid-cols-3 gap-1.5" id="dimInputsContainer">
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-zinc-400 font-bold mr-1">W</span><input type="number" id="propW" step="0.5" min="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-zinc-400 font-bold mr-1">H</span><input type="number" id="propH" step="0.5" min="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded px-1.5"><span class="text-zinc-400 font-bold mr-1">D</span><input type="number" id="propD" step="0.5" min="0.5" class="w-full bg-transparent py-1 text-zinc-200 focus:outline-none" oninput="applyTransformFromInspector()"></div>
+                    </div>
+                </div>
+
+                <!-- Color & Material -->
+                <div>
+                    <label class="text-zinc-400 block mb-1">Material Color</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="color" id="propColor" class="w-10 h-7 bg-zinc-900 border border-zinc-700 rounded cursor-pointer" oninput="applyColorFromInspector()">
+                        <input type="text" id="propColorHex" class="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-zinc-300 font-mono text-center" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <div id="noSelectionMessage" class="p-6 text-center text-zinc-500 my-auto">
+                <i class="fa-solid fa-arrow-pointer text-2xl mb-2 opacity-50 block"></i>
+                <span>Select any 3D object in the viewport or outliner to edit its transform properties.</span>
+            </div>
+
+            <!-- Quick Actions Footer -->
+            <div class="p-3 mt-auto border-t border-zinc-800 space-y-2">
+                <button onclick="duplicateSelected()" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded font-medium transition text-zinc-200 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-clone"></i><span>Duplicate Selected</span>
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Export JSON Modal Dialog -->
+    <div id="exportModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-lg w-[650px] max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-zinc-800 flex justify-between items-center">
+                <h3 class="font-bold text-sm text-zinc-200 flex items-center space-x-2"><i class="fa-solid fa-code text-blue-400"></i><span>Export Map JSON Schema</span></h3>
+                <button onclick="toggleModal('exportModal')" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 flex-1 flex flex-col space-y-3">
+                <p class="text-xs text-zinc-400">Copy the JSON below or download directly as a `.json` file for your game engine or renderer.</p>
+                <textarea id="jsonExportTextarea" readonly class="w-full h-80 bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs text-emerald-400 focus:outline-none resize-none"></textarea>
+            </div>
+            <div class="px-4 py-3 bg-zinc-950 border-t border-zinc-800 flex justify-end space-x-2">
+                <button onclick="copyJSONToClipboard()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs font-medium text-zinc-200 transition"><i class="fa-solid fa-copy mr-1.5"></i> Copy to Clipboard</button>
+                <button onclick="downloadJSONFile()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium text-white transition"><i class="fa-solid fa-download mr-1.5"></i> Download File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Controls Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-lg w-[500px] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-zinc-800 flex justify-between items-center">
+                <h3 class="font-bold text-sm text-zinc-200 flex items-center space-x-2"><i class="fa-solid fa-circle-question text-blue-400"></i><span>Blender & Roblox Navigation Guide</span></h3>
+                <button onclick="toggleModal('helpModal')" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 space-y-3 text-xs text-zinc-300">
+                <div class="bg-zinc-950 p-3 rounded border border-zinc-800 space-y-2">
+                    <div class="font-semibold text-blue-400">Viewport Navigation:</div>
+                    <ul class="list-disc list-inside space-y-1 text-zinc-400">
+                        <li><strong class="text-zinc-200">Orbit / Rotate:</strong> Alt + Left Click & Drag (or Middle Mouse Button)</li>
+                        <li><strong class="text-zinc-200">Pan Camera:</strong> Shift + Right Click & Drag</li>
+                        <li><strong class="text-zinc-200">Zoom:</strong> Mouse Scroll Wheel</li>
+                    </ul>
+                </div>
+                <div class="bg-zinc-950 p-3 rounded border border-zinc-800 space-y-2">
+                    <div class="font-semibold text-blue-400">Transform Gizmos:</div>
+                    <p class="text-zinc-400">Select any object in the 3D scene. Use the top toolbar buttons (<kbd class="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">Move</kbd>, <kbd class="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">Rotate</kbd>, <kbd class="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">Scale</kbd>) to manipulate objects interactively or fine-tune exact values in the right-hand Property Inspector.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+        let scene, camera, renderer, orbitControls, transformControls;
+        let groundMesh;
+        let interactiveObjects = []; // Holds mesh references mapped to map schema geometry
+        let selectedObject = null;
+
+        // Active Map Data Schema conforming to standard format
+        let mapData = {
+            id: "peak_bermuda",
+            name: "Peak (Bermuda Style)",
+            author: "creator",
+            sky: "#1a2634",
+            fog: { near: 50, far: 220, color: "#1a2634" },
+            light: {
+                ambient: "#d4e4f7",
+                ambientIntensity: 0.9,
+                sun: { color: "#fffaed", intensity: 1.4, x: 40, y: 100, z: 40 }
+            },
+            ground: { w: 140, d: 140, color: "#2d4c22" },
+            grid: false,
+            geometry: [],
+            spawns: [
+                { x: 0, y: 15, z: 0 }, { x: -45, y: 2, z: -45 }, { x: 45, y: 2, z: 45 }
+            ],
+            teams: {
+                "T": [{ x: -45, y: 2, z: -45 }],
+                "CT": [{ x: 45, y: 2, z: 45 }]
+            }
+        };
+
+        const presetPeak = {
+            id: "peak_bermuda",
+            name: "Peak (Bermuda Style)",
+            author: "example",
+            sky: "#1a2634",
+            fog: { near: 50, far: 220, color: "#1a2634" },
+            light: {
+                ambient: "#d4e4f7",
+                ambientIntensity: 0.9,
+                sun: { color: "#fffaed", intensity: 1.4, x: 40, y: 100, z: 40 }
+            },
+            ground: { w: 130, d: 130, color: "#2d4c22" },
+            grid: false,
+            geometry: [
+                { type: "cylinder", r: 35, h: 4, x: 0, y: 2, z: 0, color: "#385e2b" },
+                { type: "cylinder", r: 22, h: 7, x: 0, y: 5.5, z: 0, color: "#426b32" },
+                { type: "cylinder", r: 12, h: 10, x: 0, y: 9, z: 0, color: "#4d7c3a" },
+                { type: "box", w: 18, h: 6, d: 14, x: -4, y: 13, z: -3, color: "#b85d39" },
+                { type: "box", w: 20, h: 0.8, d: 16, x: -4, y: 16.4, z: -3, color: "#474a4d" },
+                { type: "box", w: 12, h: 5, d: 10, x: 25, y: 12.5, z: 25, color: "#a83232" },
+                { type: "box", w: 14, h: 0.6, d: 12, x: 25, y: 15.3, z: 25, color: "#3a3d40" },
+                { type: "box", w: 10, h: 4, d: 12, x: -25, y: 11, z: 25, color: "#8c8c8c" }
+            ],
+            spawns: [{ x: 0, y: 15, z: 0 }],
+            teams: { "T": [{ x: -50, y: 2, z: -50 }], "CT": [{ x: 50, y: 2, z: 50 }] }
+        };
+
+        const presetRooftop = {
+            id: "rooftop",
+            name: "Rooftop Battle",
+            author: "example",
+            sky: "#223344",
+            fog: { near: 40, far: 200, color: "#223344" },
+            light: { ambient: "#ffffff", ambientIntensity: 0.8, sun: { color: "#bed8ff", intensity: 1.2, x: 60, y: 90, z: 30 } },
+            ground: { w: 120, d: 120, color: "#3a3f46" },
+            grid: true,
+            geometry: [
+                { type: "box", w: 120, h: 12, d: 2, x: 0, y: 6, z: 60, color: "#4a4f57" },
+                { type: "box", w: 120, h: 12, d: 2, x: 0, y: 6, z: -60, color: "#4a4f57" },
+                { type: "box", w: 2, h: 12, d: 120, x: -60, y: 6, z: 0, color: "#41464e" },
+                { type: "box", w: 2, h: 12, d: 120, x: 60, y: 6, z: 0, color: "#41464e" },
+                { type: "cylinder", r: 1.2, h: 4, x: 0, y: 2, z: 0, color: "#6e7175" },
+                { type: "sphere", r: 1.5, x: -30, y: 1.5, z: 30, color: "#8a6d3f" }
+            ],
+            spawns: [{ x: 0, y: 2, z: 50 }],
+            teams: { "T": [{ x: -50, y: 2, z: -45 }], "CT": [{ x: 50, y: 2, z: 45 }] }
+        };
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('viewportContainer');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(mapData.sky);
+            scene.fog = new THREE.Fog(mapData.fog.color, mapData.fog.near, mapData.fog.far);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(40, 35, 50);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls setup
+            orbitControls = new OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true;
+            orbitControls.dampingFactor = 0.05;
+            orbitControls.mouseButtons = {
+                LEFT: THREE.MOUSE.NONE, // Free up left click for selection/gizmos
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.ROTATE
+            };
+
+            // Custom Blender-style navigation bindings on canvas
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.altKey && e.button === 0) {
+                    orbitControls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+                } else if (e.shiftKey && e.button === 2) {
+                    orbitControls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+                }
+            });
+
+            transformControls = new TransformControls(camera, renderer.domElement);
+            transformControls.size = 0.75;
+            scene.add(transformControls);
+
+            transformControls.addEventListener('dragging-changed', (event) => {
+                orbitControls.enabled = !event.value; // Disable camera orbit while dragging gizmo
+            });
+
+            transformControls.addEventListener('change', () => {
+                if (selectedObject) {
+                    syncMeshToData(selectedObject);
+                    updateInspectorFields();
+                }
+            });
+
+            // Lighting setup
+            const ambientLight = new THREE.AmbientLight(mapData.light.ambient, mapData.light.ambientIntensity);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(mapData.light.sun.color, mapData.light.sun.intensity);
+            sunLight.position.set(mapData.light.sun.x, mapData.light.sun.y, mapData.light.sun.z);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            scene.add(sunLight);
+
+            // Grid helper
+            const gridHelper = new THREE.GridHelper(140, 28, 0x444444, 0x222222);
+            gridHelper.position.y = 0.01;
+            scene.add(gridHelper);
+
+            // Load initial preset
+            loadMapData(presetPeak);
+
+            // Raycaster for selecting objects with pointer click
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            renderer.domElement.addEventListener('pointerdown', (event) => {
+                // Ignore if dragging gizmo or clicking outside
+                if (transformControls.dragging) return;
+
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+                if (intersects.length > 0) {
+                    let hitMesh = intersects[0].object;
+                    // Find root group/mesh if part of composite
+                    selectObject(hitMesh);
+                }
+            });
+
+            window.addEventListener('resize', onWindowResize);
+
+            // Bind UI color/text listeners
+            document.getElementById('mapIdInput').addEventListener('input', (e) => { mapData.id = e.target.value; });
+            document.getElementById('mapNameInput').addEventListener('input', (e) => { 
+                mapData.name = e.target.value; 
+                document.getElementById('currentMapTitleDisplay').innerText = mapData.name;
+            });
+            document.getElementById('skyColorInput').addEventListener('input', (e) => {
+                mapData.sky = e.target.value;
+                scene.background.set(mapData.sky);
+                scene.fog.color.set(mapData.sky);
+            });
+            document.getElementById('groundColorInput').addEventListener('input', (e) => {
+                mapData.ground.color = e.target.value;
+                if (groundMesh) groundMesh.material.color.set(mapData.ground.color);
+            });
+        }
+
+        function loadMapData(data) {
+            mapData = JSON.parse(JSON.stringify(data)); // Deep clone
+            document.getElementById('mapIdInput').value = mapData.id;
+            document.getElementById('mapNameInput').value = mapData.name;
+            document.getElementById('currentMapTitleDisplay').innerText = mapData.name;
+            document.getElementById('skyColorInput').value = mapData.sky;
+            document.getElementById('groundColorInput').value = mapData.ground.color;
+
+            scene.background.set(mapData.sky);
+            if(scene.fog) scene.fog.color.set(mapData.sky);
+
+            // Rebuild ground plane
+            if (groundMesh) scene.remove(groundMesh);
+            const groundGeo = new THREE.PlaneGeometry(mapData.ground.w, mapData.ground.d);
+            const groundMat = new THREE.MeshStandardMaterial({ color: mapData.ground.color, roughness: 0.8 });
+            groundMesh = new THREE.Mesh(groundGeo, groundMat);
+            groundMesh.rotation.x = -Math.PI / 2;
+            groundMesh.receiveShadow = true;
+            scene.add(groundMesh);
+
+            rebuildSceneGeometry();
+        }
+
+        function rebuildSceneGeometry() {
+            // Remove existing interactive meshes
+            interactiveObjects.forEach(obj => scene.remove(obj));
+            interactiveObjects = [];
+            transformControls.detach();
+            selectedObject = null;
+            hideInspector();
+
+            mapData.geometry.forEach((geomData, index) => {
+                const mesh = createMeshFromData(geomData);
+                mesh.userData.geomIndex = index;
+                scene.add(mesh);
+                interactiveObjects.push(mesh);
+            });
+
+            updateOutliner();
+            document.getElementById('polyCount').innerText = `Objects: ${interactiveObjects.length}`;
+        }
+
+        function createMeshFromData(data) {
+            let mesh;
+            const mat = new THREE.MeshStandardMaterial({ color: data.color || '#888888', roughness: 0.7 });
+
+            if (data.type === 'box' || data.type === 'barrier' || data.type === 'roof') {
+                const w = data.w || 4, h = data.h || 4, d = data.d || 4;
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+            } else if (data.type === 'cylinder' || data.type === 'pillar') {
+                const r = data.r || 2, h = data.h || 5;
+                mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24), mat);
+            } else if (data.type === 'sphere') {
+                const r = data.r || 2;
+                mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24), mat);
+            } else if (data.type === 'ramp') {
+                // Wedge / ramp geometry approximation using box or custom shape
+                const w = data.w || 6, h = data.h || 4, d = data.d || 6;
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+            } else {
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), mat);
+            }
+
+            mesh.position.set(data.x || 0, data.y || 0, data.z || 0);
+            if (data.rotX) mesh.rotation.x = data.rotX;
+            if (data.rotY) mesh.rotation.y = data.rotY;
+            if (data.rotZ) mesh.rotation.z = data.rotZ;
+
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            return mesh;
+        }
+
+        function selectObject(mesh) {
+            selectedObject = mesh;
+            transformControls.attach(mesh);
+            showInspector();
+            updateInspectorFields();
+            highlightOutlinerItem(mesh.userData.geomIndex);
+        }
+
+        function hideInspector() {
+            document.getElementById('inspectorPanel').style.display = 'none';
+            document.getElementById('noSelectionMessage').style.display = 'block';
+        }
+
+        function showInspector() {
+            document.getElementById('inspectorPanel').style.display = 'block';
+            document.getElementById('noSelectionMessage').style.display = 'none';
+        }
+
+        function updateInspectorFields() {
+            if (!selectedObject) return;
+            const idx = selectedObject.userData.geomIndex;
+            const data = mapData.geometry[idx];
+
+            document.getElementById('propName').value = `${data.type.toUpperCase()} #${idx + 1}`;
+            document.getElementById('propX').value = selectedObject.position.x.toFixed(1);
+            document.getElementById('propY').value = selectedObject.position.y.toFixed(1);
+            document.getElementById('propZ').value = selectedObject.position.z.toFixed(1);
+
+            if (data.w !== undefined) document.getElementById('propW').value = data.w;
+            if (data.h !== undefined) document.getElementById('propH').value = data.h;
+            if (data.d !== undefined) document.getElementById('propD').value = data.d;
+            if (data.r !== undefined) document.getElementById('propW').value = data.r; // Use W slot for radius representation
+
+            document.getElementById('propColor').value = data.color || '#888888';
+            document.getElementById('propColorHex').value = data.color || '#888888';
+        }
+
+        window.applyTransformFromInspector = function() {
+            if (!selectedObject) return;
+            const idx = selectedObject.userData.geomIndex;
+            const data = mapData.geometry[idx];
+
+            const px = parseFloat(document.getElementById('propX').value) || 0;
+            const py = parseFloat(document.getElementById('propY').value) || 0;
+            const pz = parseFloat(document.getElementById('propZ').value) || 0;
+
+            selectedObject.position.set(px, py, pz);
+            data.x = px; data.y = py; data.z = pz;
+
+            // Update dimensions if applicable
+            if (data.w !== undefined) {
+                const nw = parseFloat(document.getElementById('propW').value) || 2;
+                const nh = parseFloat(document.getElementById('propH').value) || 2;
+                const nd = parseFloat(document.getElementById('propD').value) || 2;
+                data.w = nw; data.h = nh; data.d = nd;
+
+                // Recreate geometry scale or mesh
+                selectedObject.geometry.dispose();
+                if (data.type === 'box' || data.type === 'barrier' || data.type === 'roof' || data.type === 'ramp') {
+                    selectedObject.geometry = new THREE.BoxGeometry(nw, nh, nd);
+                } else if (data.type === 'cylinder' || data.type === 'pillar') {
+                    selectedObject.geometry = new THREE.CylinderGeometry(nw, nw, nh, 24);
+                } else if (data.type === 'sphere') {
+                    selectedObject.geometry = new THREE.SphereGeometry(nw, 24, 24);
+                }
+            }
+        };
+
+        window.applyColorFromInspector = function() {
+            if (!selectedObject) return;
+            const idx = selectedObject.userData.geomIndex;
+            const col = document.getElementById('propColor').value;
+            mapData.geometry[idx].color = col;
+            selectedObject.material.color.set(col);
+            document.getElementById('propColorHex').value = col;
+        };
+
+        function syncMeshToData(mesh) {
+            const idx = mesh.userData.geomIndex;
+            const data = mapData.geometry[idx];
+            data.x = parseFloat(mesh.position.x.toFixed(2));
+            data.y = parseFloat(mesh.position.y.toFixed(2));
+            data.z = parseFloat(mesh.position.z.toFixed(2));
+            data.rotX = parseFloat(mesh.rotation.x.toFixed(2));
+            data.rotY = parseFloat(mesh.rotation.y.toFixed(2));
+            data.rotZ = parseFloat(mesh.rotation.z.toFixed(2));
+        }
+
+        window.setTransformMode = function(mode) {
+            transformControls.setMode(mode);
+            ['translate', 'rotate', 'scale'].forEach(m => {
+                const btn = document.getElementById(`mode${m.charAt(0).toUpperCase() + m.slice(1)}`);
+                if (m === mode) {
+                    btn.className = "px-3 py-1 rounded bg-blue-600 text-white transition flex items-center space-x-1";
+                } else {
+                    btn.className = "px-3 py-1 rounded hover:bg-zinc-700 text-zinc-300 transition flex items-center space-x-1";
+                }
+            });
+        };
+
+        window.spawnObject = function(type) {
+            let newGeom = { type, x: 0, y: 5, z: 0, color: "#7799bb" };
+            if (type === 'box') Object.assign(newGeom, { w: 6, h: 4, d: 6 });
+            else if (type === 'cylinder') Object.assign(newGeom, { r: 2.5, h: 6 });
+            else if (type === 'sphere') Object.assign(newGeom, { r: 3 });
+            else if (type === 'ramp') Object.assign(newGeom, { w: 8, h: 4, d: 8, color: "#8a6d3f" });
+            else if (type === 'pillar') Object.assign(newGeom, { r: 1.5, h: 8, color: "#6e7175" });
+            else if (type === 'barrier') Object.assign(newGeom, { w: 10, h: 3, d: 2, color: "#41464e" });
+            else if (type === 'roof') Object.assign(newGeom, { w: 12, h: 1, d: 12, color: "#b85d39" });
+            else if (type === 'spawn') Object.assign(newGeom, { type: 'box', w: 2, h: 0.5, d: 2, color: "#32cd32" });
+
+            mapData.geometry.push(newGeom);
+            rebuildSceneGeometry();
+            selectObject(interactiveObjects[interactiveObjects.length - 1]);
+        };
+
+        window.deleteSelected = function() {
+            if (!selectedObject) return;
+            const idx = selectedObject.userData.geomIndex;
+            mapData.geometry.splice(idx, 1);
+            rebuildSceneGeometry();
+        };
+
+        window.duplicateSelected = function() {
+            if (!selectedObject) return;
+            const idx = selectedObject.userData.geomIndex;
+            const clonedGeom = JSON.parse(JSON.stringify(mapData.geometry[idx]));
+            clonedGeom.x += 4; // Offset duplicate
+            mapData.geometry.push(clonedGeom);
+            rebuildSceneGeometry();
+            selectObject(interactiveObjects[interactiveObjects.length - 1]);
+        };
+
+        function updateOutliner() {
+            const list = document.getElementById('outlinerList');
+            list.innerHTML = '';
+            document.getElementById('outlinerCount').innerText = `${mapData.geometry.length} items`;
+
+            mapData.geometry.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-2 rounded bg-zinc-900/60 hover:bg-zinc-800 cursor-pointer text-zinc-300 border border-transparent transition";
+                div.innerHTML = `<div class="flex items-center space-x-2"><i class="fa-solid fa-cube text-blue-400 text-[10px]"></i><span>${index + 1}. ${item.type.toUpperCase()}</span></div><span class="text-[10px] text-zinc-500">xyz(${item.x}, ${item.y})</span>`;
+                div.onclick = () => {
+                    selectObject(interactiveObjects[index]);
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function highlightOutlinerItem(index) {
+            const list = document.getElementById('outlinerList');
+            Array.from(list.children).forEach((child, idx) => {
+                if (idx === index) {
+                    child.className = "flex items-center justify-between p-2 rounded bg-blue-600/20 border border-blue-500/50 cursor-pointer text-white transition";
+                } else {
+                    child.className = "flex items-center justify-between p-2 rounded bg-zinc-900/60 hover:bg-zinc-800 cursor-pointer text-zinc-300 border border-transparent transition";
+                }
+            });
+        }
+
+        window.switchTab = function(tabName) {
+            if (tabName === 'library') {
+                document.getElementById('tabBtnLibrary').className = "flex-1 py-2.5 tab-btn active hover:bg-zinc-800/50 transition";
+                document.getElementById('tabBtnOutliner').className = "flex-1 py-2.5 tab-btn hover:bg-zinc-800/50 transition";
+                document.getElementById('tabContentLibrary').style.display = 'block';
+                document.getElementById('tabContentOutliner').style.display = 'none';
+            } else {
+                document.getElementById('tabBtnLibrary').className = "flex-1 py-2.5 tab-btn hover:bg-zinc-800/50 transition";
+                document.getElementById('tabBtnOutliner').className = "flex-1 py-2.5 tab-btn active hover:bg-zinc-800/50 transition";
+                document.getElementById('tabContentLibrary').style.display = 'none';
+                document.getElementById('tabContentOutliner').style.display = 'block';
+                updateOutliner();
+            }
+        };
+
+        window.loadPreset = function(presetKey) {
+            if (presetKey === 'peak') loadMapData(presetPeak);
+            else if (presetKey === 'rooftop') loadMapData(presetRooftop);
+            else if (presetKey === 'empty') {
+                let emptyMap = JSON.parse(JSON.stringify(presetPeak));
+                emptyMap.id = "empty_map";
+                emptyMap.name = "Blank Sandbox";
+                emptyMap.geometry = [];
+                loadMapData(emptyMap);
+            }
+        };
+
+        window.newProject = function() {
+            loadPreset('empty');
+        };
+
+        window.exportJSON = function() {
+            document.getElementById('jsonExportTextarea').value = JSON.stringify(mapData, null, 2);
+            toggleModal('exportModal');
+        };
+
+        window.triggerImport = function() {
+            document.getElementById('importFile').click();
+        };
+
+        window.importJSON = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    loadMapData(parsed);
+                } catch(err) {
+                    alert('Invalid Map JSON schema file.');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.copyJSONToClipboard = function() {
+            const textarea = document.getElementById('jsonExportTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            alert('JSON schema copied to clipboard!');
+        };
+
+        window.downloadJSONFile = function() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mapData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `${mapData.id || 'map'}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        };
+
+        window.toggleModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.toggle('hidden');
+        };
+
+        function onWindowResize() {
+            const container = document.getElementById('viewportContainer');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            orbitControls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+{
+  "id": "empty_map",
+  "name": "Blank Sandbox",
+  "author": "example",
+  "sky": "#1a2634",
+  "fog": {
+    "near": 50,
+    "far": 220,
+    "color": "#1a2634"
+  },
+  "light": {
+    "ambient": "#d4e4f7",
+    "ambientIntensity": 0.9,
+    "sun": {
+      "color": "#fffaed",
+      "intensity": 1.4,
+      "x": 40,
+      "y": 100,
+      "z": 40
+    }
+  },
+  "ground": {
+    "w": 130,
+    "d": 130,
+    "color": "#2d4c22"
+  },
+  "grid": false,
+  "geometry": [
+    {
+      "type": "cylinder",
+      "x": 0,
+      "y": 3.11,
+      "z": 0,
+      "color": "#7799bb",
+      "r": 2.5,
+      "h": 6,
+      "rotX": 0,
+      "rotY": 0,
+      "rotZ": 0
+    },
+    {
+      "type": "sphere",
+      "x": -5.05,
+      "y": 5,
+      "z": 0,
+      "color": "#7799bb",
+      "r": 3,
+      "rotX": 0,
+      "rotY": 0,
+      "rotZ": 0
+    },
+    {
+      "type": "sphere",
+      "x": 4.09,
+      "y": 5,
+      "z": 0,
+      "color": "#7799bb",
+      "r": 3,
+      "rotX": 0,
+      "rotY": 0,
+      "rotZ": 0
+    }
+  ],
+  "spawns": [
+    {
+      "x": 0,
+      "y": 15,
+      "z": 0
+    }
+  ],
+  "teams": {
+    "T": [
+      {
+        "x": -50,
+        "y": 2,
+        "z": -50
+      }
+    ],
+    "CT": [
+      {
+        "x": 50,
+        "y": 2,
+        "z": 50
+      }
+    ]
+  }
+}
